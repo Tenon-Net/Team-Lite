@@ -1,0 +1,28 @@
+/target/
+**/target/
+node_modules/
+dist/
+*.db
+*.db-journal
+.env
+.env.*
+!.env.example
+
+# Local probe / temp artifacts
+/results/
+a4-build.log
+a4-build*.log
+acp-test.log
+*.log
+tmp-*.json
+tmp-*.log
+
+# Agent runtime state (not product source)
+.omc/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

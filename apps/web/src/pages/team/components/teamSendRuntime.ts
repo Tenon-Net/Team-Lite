@@ -1,0 +1,236 @@
+// @ts-nocheck
+import { isBackendHttpError } from '@/common/adapter/httpBridge';
+import type { ConversationCommandQueueRuntimeGate } from '@/renderer/pages/conversation/platforms/useConversationCommandQueue';
+import type {
+  ITeamChildTurnEvent,
+  ITeamSlotWork,
+  TeamAssistant,
+  TeammateStatus,
+  TeamSlotBlockedReason,
+} from '@/common/types/team/teamTypes';
+import type { TeamRunViewState } from '../hooks/useTeamRunView';
+
+export type TeamSendBoxRuntime = {
+  runtimeGate: ConversationCommandQueueRuntimeGate;
+  loading: boolean;
+  queuedCount: number;
+  statusText?: string;
+  startedAtMs: number | null;
+  onStop?: () => Promise<void>;
+};
+
+type BuildTeamSendRuntimeOptions = {
+  slot_id: string;
+  runView: TeamRunViewState;
+  statusText?: string;
+  onStop?: () => Promise<void>;
+  /**
+   * True when the team session was idle-reclaimed (see
+   * `TeamRunViewState.sessionStopped`). Stopped is recoverable-and-sendable: the
+   * next send triggers lazy recovery, so the gate stays open and no spinner is
+   * shown, regardless of any stale `session_stopped` slot work.
+   */
+  sessionStopped?: boolean;
+};
+
+type PauseSlotWorkParams = {
+  team_id: string;
+  team_run_id: string;
+  slot_id: string;
+  reason: 'user_stop';
+};
+
+type BuildTeamStopHandlerOptions = {
+  team_id: string;
+  slot_id: string;
+  runView: TeamRunViewState;
+  pauseSlotWork: (params: PauseSlotWorkParams) => Promise<void>;
+  onStopFailed?: () => void;
+  onRunStateStale?: () => Promise<boolean>;
+};
+
+// `session_stopped` is intentionally NOT fatal: an idle-reclaimed session is
+// recoverable and must stay sendable so the lazy-recovery send path can fire.
+// A stale `session_stopped` slot still shows the stopped status text (see
+// `buildTeamWorkStatusText`) but no longer blocks sending.
+const FATAL_BLOCK_REASONS = new Set<TeamSlotBlockedReason>(['runtime_failed', 'removing']);
+
+type TeamWorkStatusTextFormatters = {
+  processing: () => string;
+  processingWithQueued: (count: number) => string;
+  runtimeStarting: () => string;
+  runtimeFailed: () => string;
+  removing: () => string;
+  sessionStopped: () => string;
+};
+
+export const getTeamWorkQueuedCount = (work?: ITeamSlotWork): number =>
+  (work?.queued_foreground_count ?? 0) + (work?.queued_background_count ?? 0);
+
+export const hasActiveTeamWork = (work?: ITeamSlotWork): boolean =>
+  work?.state === 'starting' || work?.state === 'running';
+
+const hasActiveChildTurn = (childTurn?: ITeamChildTurnEvent): boolean =>
+  childTurn?.status === 'accepted' || childTurn?.status === 'running' || childTurn?.status === 'cancelling';
+
+type ResolveTeamMemberRuntimeStatusOptions = {
+  persistedStatus: TeammateStatus;
+  work?: ITeamSlotWork;
+  childTurn?: ITeamChildTurnEvent;
+  sessionStopped?: boolean;
+  hydrated: boolean;
+};
+
+/**
+ * Resolves the status shown for a team member from the authoritative run view.
+ * An explicit idle snapshot wins over delayed child-turn events, while a live
+ * child turn bridges the short gap before slot work advances from queued.
+ */
+export const resolveTeamMemberRuntimeStatus = ({
+  persistedStatus,
+  work,
+  childTurn,
+  sessionStopped = false,
+  hydrated,
+}: ResolveTeamMemberRuntimeStatusOptions): TeammateStatus => {
+  if (sessionStopped) return 'idle';
+  if (work?.state === 'idle') return 'idle';
+  if (hasActiveTeamWork(work) || hasActiveChildTurn(childTurn)) return 'active';
+
+  switch (work?.state) {
+    case 'queued':
+    case 'paused':
+      return 'pending';
+    case 'blocked':
+      return work.blocked_reason === 'runtime_failed' || work.blocked_reason === 'removing' ? 'failed' : 'pending';
+    default:
+      return hydrated && persistedStatus === 'active' ? 'idle' : persistedStatus;
+  }
+};
+
+/** Returns active members once, in persisted team order. */
+export const collectWorkingTeamMembers = (assistants: TeamAssistant[], runView: TeamRunViewState): TeamAssistant[] => {
+  if (runView.sessionStopped) return [];
+
+  const seen = new Set<string>();
+  return assistants.filter((assistant) => {
+    if (seen.has(assistant.slot_id)) return false;
+    seen.add(assistant.slot_id);
+    return (
+      resolveTeamMemberRuntimeStatus({
+        persistedStatus: assistant.status,
+        work: runView.slotWorkBySlot[assistant.slot_id],
+        childTurn: runView.childTurnsBySlot[assistant.slot_id],
+        sessionStopped: runView.sessionStopped,
+        hydrated: runView.hydrated ?? true,
+      }) === 'active'
+    );
+  });
+};
+
+export const buildTeamWorkStatusText = (
+  work: ITeamSlotWork | undefined,
+  format: TeamWorkStatusTextFormatters
+): string | undefined => {
+  switch (work?.blocked_reason) {
+    case 'runtime_starting':
+      return format.runtimeStarting();
+    case 'runtime_failed':
+      return format.runtimeFailed();
+    case 'removing':
+      return format.removing();
+    case 'session_stopped':
+      return format.sessionStopped();
+    default:
+      break;
+  }
+
+  const queuedCount = getTeamWorkQueuedCount(work);
+  if (hasActiveTeamWork(work)) {
+    return queuedCount > 0 ? format.processingWithQueued(queuedCount) : undefined;
+  }
+
+  if (queuedCount > 0) {
+    return format.processing();
+  }
+
+  return undefined;
+};
+
+export const isStaleTeamRunPauseError = (error: unknown): boolean => {
+  return (
+    isBackendHttpError(error) &&
+    error.status === 400 &&
+    error.code === 'BAD_REQUEST' &&
+    (error.backendMessage.includes('no active team run to pause') || error.backendMessage.includes('is not active'))
+  );
+};
+
+export const buildTeamStopHandler = ({
+  team_id,
+  slot_id,
+  runView,
+  pauseSlotWork,
+  onStopFailed,
+  onRunStateStale,
+}: BuildTeamStopHandlerOptions): (() => Promise<void>) => {
+  return async () => {
+    const activeRun = runView.activeRun;
+    if (!activeRun) return;
+
+    const work = runView.slotWorkBySlot[slot_id];
+    const hasSlotWork =
+      Boolean(work?.active_turn_id) ||
+      (work?.queued_foreground_count ?? 0) > 0 ||
+      (work?.queued_background_count ?? 0) > 0 ||
+      work?.state === 'starting' ||
+      work?.state === 'running' ||
+      work?.state === 'paused';
+    if (!hasSlotWork) return;
+
+    try {
+      await pauseSlotWork({
+        team_id,
+        team_run_id: activeRun.team_run_id,
+        slot_id,
+        reason: 'user_stop',
+      });
+    } catch (error) {
+      console.warn('[TeamChatView] pause slot work failed', error);
+      if (isStaleTeamRunPauseError(error)) {
+        const reconciled = await onRunStateStale?.();
+        if (!reconciled) onStopFailed?.();
+        return;
+      }
+      onStopFailed?.();
+    }
+  };
+};
+
+export const buildTeamSendRuntime = ({
+  slot_id,
+  runView,
+  statusText,
+  onStop,
+  sessionStopped,
+}: BuildTeamSendRuntimeOptions): TeamSendBoxRuntime => {
+  const work = runView.slotWorkBySlot[slot_id];
+  const queuedCount = getTeamWorkQueuedCount(work);
+  const fatalBlock = work?.blocked_reason ? FATAL_BLOCK_REASONS.has(work.blocked_reason) : false;
+  // Stopped session: force the recoverable-stopped shape — keep the gate open
+  // and suppress the spinner, overriding any residual fatal block or active work.
+  const effectiveFatalBlock = sessionStopped ? false : fatalBlock;
+  const loading = sessionStopped ? false : hasActiveTeamWork(work) || (!fatalBlock && queuedCount > 0);
+  return {
+    loading,
+    queuedCount,
+    statusText,
+    startedAtMs: work?.active_turn_started_at_ms ?? null,
+    runtimeGate: {
+      hydrated: true,
+      canSendMessage: !effectiveFatalBlock,
+      isProcessing: false,
+    },
+    onStop,
+  };
+};

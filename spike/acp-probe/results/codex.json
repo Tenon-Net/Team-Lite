@@ -1,0 +1,83 @@
+{
+  "agent": "codex",
+  "status": "pass",
+  "launch": {
+    "agent": "codex",
+    "executable": "C:/Program Files/nodejs/npx.cmd",
+    "args": [
+      "-y",
+      "@zed-industries/codex-acp@0.14.0"
+    ],
+    "underlying_cli": "C:/Users/Administrator/AppData/Roaming/npm/codex",
+    "permission_model": "ACP client selects the first advertised permission option; no Codex provider variables are added."
+  },
+  "prompt": "Respond exactly with: ACP probe pass. Do not call tools or modify files.",
+  "inherited_relevant_env": {
+    "AIONUI_CODEX_API_KEY": false,
+    "AIONUI_CODEX_BASE_URL": false,
+    "AIONUI_CODEX_MODEL": false,
+    "AIONUI_PROVIDER_ID": false,
+    "AIONUI_PROVIDER_MODEL_ID": false,
+    "ANTHROPIC_API_KEY": false,
+    "ANTHROPIC_AUTH_TOKEN": false,
+    "ANTHROPIC_BASE_URL": false,
+    "GROK_HOME": true,
+    "XAI_API_KEY": false
+  },
+  "auth_methods": [
+    {
+      "description": "Use your ChatGPT login with Codex CLI (requires a paid ChatGPT subscription)",
+      "id": "chatgpt",
+      "name": "Login with ChatGPT"
+    },
+    {
+      "description": "Requires setting the `CODEX_API_KEY` environment variable.",
+      "id": "codex-api-key",
+      "name": "Use CODEX_API_KEY",
+      "type": "env_var",
+      "vars": [
+        {
+          "name": "CODEX_API_KEY"
+        }
+      ]
+    },
+    {
+      "description": "Requires setting the `OPENAI_API_KEY` environment variable.",
+      "id": "openai-api-key",
+      "name": "Use OPENAI_API_KEY",
+      "type": "env_var",
+      "vars": [
+        {
+          "name": "OPENAI_API_KEY"
+        }
+      ]
+    }
+  ],
+  "available_modes": {
+    "availableModes": [
+      {
+        "description": "Codex can read files in the current workspace. Approval is required to edit files or access the internet.",
+        "id": "read-only",
+        "name": "Read Only"
+      },
+      {
+        "description": "Codex can read and edit files in the current workspace, and run commands. Approval is required to access the internet or edit other files. (Identical to Agent mode)",
+        "id": "auto",
+        "name": "Default"
+      },
+      {
+        "description": "Codex can edit files outside this workspace and access the internet without asking for approval. Exercise caution when using.",
+        "id": "full-access",
+        "name": "Full Access"
+      }
+    ],
+    "currentModeId": "full-access"
+  },
+  "permission_model": "ACP client selects the first advertised permission option; no Codex provider variables are added.",
+  "permission_requests": [],
+  "streamed_output": "Model metadata for `gpt-5.6-luna` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.ACP probe pass.",
+  "updates": 4,
+  "stop_reason": "end_turn",
+  "failure_step": null,
+  "error": null
+}

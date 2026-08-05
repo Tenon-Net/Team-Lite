@@ -1,0 +1,52 @@
+{
+  "agent": "grok",
+  "status": "pass",
+  "launch": {
+    "agent": "grok",
+    "executable": "C:/Users/Administrator/.grok/bin/grok",
+    "args": [
+      "agent",
+      "stdio"
+    ],
+    "underlying_cli": "C:/Users/Administrator/.grok/bin/grok",
+    "permission_model": "ACP client selects the first advertised permission option; Grok uses its inherited local login state."
+  },
+  "prompt": "Respond exactly with: ACP probe pass. Do not call tools or modify files.",
+  "inherited_relevant_env": {
+    "AIONUI_CODEX_API_KEY": false,
+    "AIONUI_CODEX_BASE_URL": false,
+    "AIONUI_CODEX_MODEL": false,
+    "AIONUI_PROVIDER_ID": false,
+    "AIONUI_PROVIDER_MODEL_ID": false,
+    "ANTHROPIC_API_KEY": false,
+    "ANTHROPIC_AUTH_TOKEN": false,
+    "ANTHROPIC_BASE_URL": false,
+    "GROK_HOME": true,
+    "XAI_API_KEY": false
+  },
+  "auth_methods": [
+    {
+      "description": "XAI_API_KEY or api_key/env_key in config.toml",
+      "id": "xai.api_key",
+      "name": "xai.api_key"
+    },
+    {
+      "description": "Cached token from ~/.grok/auth.json",
+      "id": "cached_token",
+      "name": "cached_token"
+    },
+    {
+      "description": "Sign in with Grok",
+      "id": "grok.com",
+      "name": "Grok"
+    }
+  ],
+  "available_modes": null,
+  "permission_model": "ACP client selects the first advertised permission option; Grok uses its inherited local login state.",
+  "permission_requests": [],
+  "streamed_output": "ACP probe pass.",
+  "updates": 31,
+  "stop_reason": "end_turn",
+  "failure_step": null,
+  "error": null
+}

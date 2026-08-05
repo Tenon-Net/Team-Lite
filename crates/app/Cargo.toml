@@ -1,0 +1,26 @@
+[package]
+name = "app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "team-lite"
+path = "src/main.rs"
+
+[dependencies]
+acp = { workspace = true }
+api-types = { workspace = true }
+async-trait = "0.1"
+axum = { version = "0.8", features = ["macros", "ws"] }
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+store = { workspace = true }
+team = { workspace = true }
+team-auth = { workspace = true }
+team-common = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

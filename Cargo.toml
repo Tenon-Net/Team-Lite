@@ -1,0 +1,27 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/api-types",
+    "crates/team-prompts",
+    "crates/team",
+    "crates/team-common",
+    "crates/team-auth",
+    "crates/acp",
+    "crates/store",
+    "crates/app",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+api-types = { path = "crates/api-types" }
+team-prompts = { path = "crates/team-prompts" }
+team = { path = "crates/team" }
+team-common = { path = "crates/team-common" }
+team-auth = { path = "crates/team-auth" }
+acp = { path = "crates/acp" }
+store = { path = "crates/store" }
+app = { path = "crates/app" }

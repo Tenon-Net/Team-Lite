@@ -1,0 +1,32 @@
+[package]
+name = "team"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+api-types = { workspace = true }
+team-prompts = { workspace = true }
+team-common = { workspace = true }
+team-auth = { workspace = true }
+store = { workspace = true }
+acp = { workspace = true, features = ["test-support"] }
+
+axum = { version = "0.8", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+async-trait = "0.1"
+dashmap = "6"
+regex = "1"
+agent-client-protocol = { version = "0.11.1", features = [
+    "unstable_session_resume",
+] }
+futures-util = "0.3"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }
+futures-util = "0.3"
+tempfile = "3"
